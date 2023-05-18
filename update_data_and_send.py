@@ -1,13 +1,14 @@
-import config.py
 import time
 import pymysql
 import logging
 import re
+from config.database_config import * 
 from websocket import create_connection
 
 
 logging.basicConfig(filename="log/communication_log.txt", level=logging.INFO) # Set log file
 BATCH_SIZE = 10    # Batch size of tuples
+min_usage_id, max_usage_id = None, None
 
 # 1. Update table using visitor info / Guess user_id by Enterance time / Replace Null with visitor_info.user_id  
 def update_water_usage():
@@ -33,66 +34,61 @@ GROUP BY water_usage.usage_id"""
     finally: 
         conn.close()
 
-# 2. Send it to server (Every 5 minutes)
-def send_record_to_server():
+# Retrieve data from local database
+def get_tuples():
     sent_range = find_sent_range()
+    start, end = None, None
     query = "SELECT usage_id, user_id, start_time, end_time, place, amount FROM water_usage"
     if sent_range:
-        min_usage_id, max_usage_id = sent_range
-        query = "SEELCT usage_id, user_id, start_time, end_time, place, amount from water_usage WHERE usage_id NOT BETWEEN %s AND %s"
+        start, end = sent_range
+        query = "SELECT usage_id, user_id, start_time, end_time, place, amount from water_usage WHERE usage_id NOT BETWEEN %s AND %s"
     
     conn = pymysql.connect(host=MYSQL_HOST, user=MYSQL_USER, password=MYSQL_PASSWORD, db=MYSQL_DB, charset='utf8')
+    data = None
     try:
         curs = conn.cursor()
-        curs.execute(query)
+        curs.execute(query,(min_usage_id, max_usage_id))
         data = curry.fetchall()
-        ws = websocket.creat_connection(f"ws:{CARBONCHECK_SERVER_URL}")
-    finally:conn.close()
+    finally:
+        conn.close()
+    if data is not None:
+        send_data_to_server(data)
 
-    user_id = row[0]
-    usage_id = row[1]
-    start_time = row[2]
-    end_time = row[3]
-    place = row[4]
-    amount = row[5]
-    message = str(row)
 
-    try:
-        ws.send(message)
-        # update min, max _usage_id
-        if min_usage_id is None or usage_id < min_usage_id:
-            min_usage_id = usage_id
-        if max_usage_id is None or usage_id > max_usa
-e_id:
-            max_usage_id = usage_id
-        return True, min_usage_id, max_usage_id
-    except Exception as e:
-        return False, min_usage_id, max_usage_id
-    
-    
+# 2. Send data to server / # Retrieve data from local database
+def send_data_to_server(rows, ws):
+        message = str(rows)
+        try:
+            ws.send(message)
+            for row in rows:
+                usage_id = row[0]
+                # update min, max _usage_id
+                if min_usage_id is None or usage_id < min_usage_id:
+                    min_usage_id = usage_id
+                if max_usage_id is None or usage_id > max_usage_id:
+                    max_usage_id = usage_id
+            return True
+        except Exception as e:
+            return False
 
-# 3. Log the size of the column you sent and the response you received from the server
-def save_log(row, result):
-    user_id = row[0]
-    usage_id = row[1]
-    start_time = row[2]
-    end_time = row[3]
-    place = row[4]
-    amount = row[5]
-    message = str(row)
-    if result:
-        logging.info(f"Sent {message} to the server")
-    else:
-        logging.error(f"Failed to send {message} to the server")
+
+# 3. Log the range of the column you sent and the response you received from the server
+def save_log(rows, result):
+    for row in rows:
+        message = str(row)
+        if result:
+            logging.info(f"Sent {message} to the server")
+        else:
+            logging.error(f"Failed to send {message} to the server")
+
 
 # 4. Read the log and decide whether to resend or not
 def communication_result():
-    # return False
-    return True
+    pass
 
 # service function for checking sent row number
 def find_sent_range():
-    with open("log.txt", "r") as f:
+    with open("log/communication_log.txt", "r") as f:
         last_line = f.readlines()[-1]
         match = re.search(r"usage_id from (\d+) to (\d+)", last_line) 
     if match:
@@ -104,16 +100,20 @@ def find_sent_range():
 def main():
     # 1. Update table using visitor info / Guess user_id by Enterance time / Replace Null with visitor_info.user_id
     update_water_usage() 
-    # 2. Send it to server 
-    send_record_to_server()
 
-    # 3. Log the size of the column you sent and the response you received from the server
-    communication_log()
+    # 2. Send it to server 
+    ws = websocket.creat_connection(f"ws:{CARBONCHECK_SERVER_URL}")
+    data = get_tuples()
+    for i in range(0, len(data), BATCH_SIZE):
+        rows = data[i:i+BATCH_SIZE]    # Slice the data by batch size
+        result = send_data_to_server(rows)
+        save_log(rows,result)
+    ws.close()
+
+    # 3. Log the range of the column you sent and the response you received from the server
+    logging.info(f"Sent rows with usage_id from {min_usage_id} to {max_usage_id} to the server")
     # 4. Read the log and decide whether to resend or not
-    if (communication_result() == False):
-            
-        
-        
+   
 
 
 
