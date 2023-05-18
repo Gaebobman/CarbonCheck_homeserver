@@ -1,6 +1,8 @@
 # Created by https://www.toptal.com/developers/gitignore/api/linux,python,opencv
 # Edit at https://www.toptal.com/developers/gitignore?templates=linux,python,opencv
 
+config/
+log/
 ### Linux ###
 *~
 
