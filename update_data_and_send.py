@@ -15,26 +15,24 @@ def update_water_usage():
     conn = pymysql.connect(host=MYSQL_HOST, user=MYSQL_USER, password=MYSQL_PASSWORD, db=MYSQL_DB, charset='utf8')
     try:
         curs = conn.cursor()
-        cur.execute("SET @@global.sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'")
-
         query = """ 
 SELECT visitor_info.user_id AS USER_ID, water_usage.usage_id AS USAGE_ID, visitor_info.enterance_time ,water_usage.start_time, MIN(ABS(TIMESTAMPDIFF(SECOND, visitor_info.enterance_time, water_usage.start_time))) AS diff 
 FROM visitor_info INNER JOIN water_usage 
 ON water_usage.user_id IS NULL  
 AND visitor_info.enterance_time < water_usage.start_time
-GROUP BY water_usage.usage_id, visitor_info.user_id
+GROUP BY USAGE_ID, USER_ID
 """
-
-
         curs.execute(query)
         # fetch result of query
         data = curs.fetchall()
+        data_list = sorted(list(data),key=lambda x:(x[1], x[4]))
+        user_id, usage_id = None, None
         # update water_usage
-        for row in data:
+        for row in data_list:
+            if usage_id == row[1]:
+                continue
             user_id = row[0]
             usage_id = row[1]
-            start_time = row[2]
-            diff = row[3]
             update_query = "UPDATE water_usage SET user_id = %s WHERE usage_id = %s"
             curs.execute(update_query, (user_id, usage_id))
         conn.commit()
