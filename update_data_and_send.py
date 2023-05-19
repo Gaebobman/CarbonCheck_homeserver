@@ -15,10 +15,17 @@ def update_water_usage():
     conn = pymysql.connect(host=MYSQL_HOST, user=MYSQL_USER, password=MYSQL_PASSWORD, db=MYSQL_DB, charset='utf8')
     try:
         curs = conn.cursor()
-        query = """ SELECT visitor_info.user_id, water_usage.usage_id, water_usage.start_time, 
-MIN(ABS(TIMESTAMPDIFF(SECOND, visitor_info.enterance_time, water_usage.start_time))) AS diff
-From visitor_info INNER JOIN water_usage ON visitor_info.user_id <> water_usage.user_id AND visitor_info.enterance_time < water_usage.start_time
-GROUP BY water_usage.usage_id"""
+        cur.execute("SET @@global.sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'")
+
+        query = """ 
+SELECT visitor_info.user_id AS USER_ID, water_usage.usage_id AS USAGE_ID, visitor_info.enterance_time ,water_usage.start_time, MIN(ABS(TIMESTAMPDIFF(SECOND, visitor_info.enterance_time, water_usage.start_time))) AS diff 
+FROM visitor_info INNER JOIN water_usage 
+ON water_usage.user_id IS NULL  
+AND visitor_info.enterance_time < water_usage.start_time
+GROUP BY water_usage.usage_id, visitor_info.user_id
+"""
+
+
         curs.execute(query)
         # fetch result of query
         data = curs.fetchall()
@@ -102,7 +109,8 @@ def main():
     update_water_usage() 
 
     # 2. Send it to server 
-    ws = websocket.creat_connection(f"ws:{CARBONCHECK_SERVER_URL}")
+    """
+    ws = create_connection(f"ws://{CARBONCHECK_SERVER_URL}")
     data = get_tuples()
     for i in range(0, len(data), BATCH_SIZE):
         rows = data[i:i+BATCH_SIZE]    # Slice the data by batch size
@@ -113,7 +121,7 @@ def main():
     # 3. Log the range of the column you sent and the response you received from the server
     logging.info(f"Sent rows with usage_id from {min_usage_id} to {max_usage_id} to the server")
     # 4. Read the log and decide whether to resend or not
-   
+    """
 
 
 
