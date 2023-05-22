@@ -1,4 +1,6 @@
+from datetime import datetime
 import time
+import json
 import pymysql
 import logging
 import re
@@ -54,18 +56,27 @@ def get_tuples():
     data = None
     try:
         curs = conn.cursor()
-        curs.execute(query,(min_usage_id, max_usage_id))
-        data = curry.fetchall()
+        if start is not None:
+            curs.execute(query,(min_usage_id, max_usage_id))
+        else:
+            curs.execute(query)
+        data = curs.fetchall()
     finally:
         conn.close()
-    if data is not None:
-        send_data_to_server(data)
+    return data
+
+
+def json_datetime_default(value):
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+    raise TypeError('not JSON serializable')
+
 
 
 # 2. Send data to server / # Retrieve data from local database
 def send_data_to_server(rows, ws):
         # message = str(rows)
-        message = json.dumps(rows)
+        message = json.dumps(rows, default=json_datetime_default)
         try:
             ws.send(message)
             for row in rows:
@@ -78,6 +89,7 @@ def send_data_to_server(rows, ws):
             return True
         except Exception as e:
             return False
+        
 
 
 # 3. Log the range of the column you sent and the response you received from the server
@@ -111,14 +123,14 @@ def main():
 
     # 2. Send it to server 
     
-    ws = create_connection(f"ws://{CARBONCHECK_SERVER_URL}")
+    ws = create_connection(f"ws://{CARBONCHECK_SERVER_URL}/{WATER_USAGE_CLIENT}")
     data = get_tuples()
     for i in range(0, len(data), BATCH_SIZE):
         rows = data[i:i+BATCH_SIZE]    # Slice the data by batch size
-        result = send_data_to_server(rows)
+        result = send_data_to_server(rows, ws) 
         save_log(rows,result)
     ws.close()
-
+    
     # 3. Log the range of the column you sent and the response you received from the server
     logging.info(f"Sent rows with usage_id from {min_usage_id} to {max_usage_id} to the server")
     # 4. Read the log and decide whether to resend or not
