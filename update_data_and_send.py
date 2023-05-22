@@ -15,6 +15,8 @@ def update_water_usage():
     conn = pymysql.connect(host=MYSQL_HOST, user=MYSQL_USER, password=MYSQL_PASSWORD, db=MYSQL_DB, charset='utf8')
     try:
         curs = conn.cursor()
+        curs.execute("SET @@global.sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'")
+        conn.commit()
         query = """ 
 SELECT visitor_info.user_id AS USER_ID, water_usage.usage_id AS USAGE_ID, visitor_info.enterance_time ,water_usage.start_time, MIN(ABS(TIMESTAMPDIFF(SECOND, visitor_info.enterance_time, water_usage.start_time))) AS diff 
 FROM visitor_info INNER JOIN water_usage 
@@ -62,7 +64,8 @@ def get_tuples():
 
 # 2. Send data to server / # Retrieve data from local database
 def send_data_to_server(rows, ws):
-        message = str(rows)
+        # message = str(rows)
+        message = json.dumps(rows)
         try:
             ws.send(message)
             for row in rows:
@@ -107,7 +110,7 @@ def main():
     update_water_usage() 
 
     # 2. Send it to server 
-    """
+    
     ws = create_connection(f"ws://{CARBONCHECK_SERVER_URL}")
     data = get_tuples()
     for i in range(0, len(data), BATCH_SIZE):
@@ -119,7 +122,7 @@ def main():
     # 3. Log the range of the column you sent and the response you received from the server
     logging.info(f"Sent rows with usage_id from {min_usage_id} to {max_usage_id} to the server")
     # 4. Read the log and decide whether to resend or not
-    """
+    
 
 
 
