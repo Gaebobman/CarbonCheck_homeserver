@@ -48,10 +48,10 @@ GROUP BY USAGE_ID, USER_ID
 def get_tuples():
     sent_range = find_sent_range()
     start, end = None, None
-    query = "SELECT user_id, start_time, end_time, place, amount FROM water_usage"
+    query = "SELECT usage_id,CAST(user_id AS SIGNED), start_time, end_time, place, amount FROM water_usage"
     if sent_range:
         start, end = sent_range
-        query = "SELECT user_id, start_time, end_time, place, amount from water_usage WHERE usage_id NOT BETWEEN %s AND %s"
+        query = "SELECT usage_id, CAST(user_id AS SIGNED), start_time, end_time, place, amount from water_usage WHERE usage_id NOT BETWEEN %s AND %s"
     
     conn = pymysql.connect(host=MYSQL_HOST, user=MYSQL_USER, password=MYSQL_PASSWORD, db=MYSQL_DB, charset='utf8')
     data = None
@@ -76,16 +76,18 @@ def json_datetime_default(value):
 
 # 2. Send data to server / # Retrieve data from local database
 def send_data_to_server(rows):
+        global min_usage_id, max_usage_id
         # message = str(rows)
+        headers = {"Content-Type": "application/json"}
         row_headers = ['user_id', 'start_time', 'end_time', 'place', 'amount']
         json_data = []
         for row in rows:
-            json_data.append(dict(zip(row_headers, row))) # Zip the column and tuple elements and make a dictionary
-        message = json.dumps(json_data, default=json_datetime_default)
-        print(message)
+            json_data.append(dict(zip(row_headers, row[1:]))) # Zip the column and tuple elements and make a dictionary
+        message = json.dumps(json_data, default=json_datetime_default) 
         try:
-            response = request.post(f"http://{CARBONCHECK_SERVER_URL}/{WATER_USAGE_CLIENT}", json=message)
-            result = response.json().get("success", False)
+            response = requests.post(f"https://{CARBONCHECK_SERVER_URL}/{WATER_USAGE_CLIENT}", headers=headers, data=message)
+            result = response.json()
+            result = result['success']
             for row in rows:
                 usage_id = row[0]
                 # update min, max _usage_id
@@ -102,7 +104,7 @@ def send_data_to_server(rows):
 # 3. Log the range of the column you sent and the response you received from the server
 def save_log(rows, result):
     for row in rows:
-        message = str(row)
+        message = str(row[1:])
         if result:
             logging.info(f"Sent {message} to the server")
         else:
@@ -129,19 +131,19 @@ def main():
     update_water_usage() 
 
     # 2. Send it to server 
-    
-    
     data = get_tuples()
     for i in range(0, len(data), BATCH_SIZE):
         rows = data[i:i+BATCH_SIZE]    # Slice the data by batch size
         result = send_data_to_server(rows) 
+        print(result)
         save_log(rows,result)
 
     
     # 3. Log the range of the column you sent and the response you received from the server
-    logging.info(f"Sent rows with usage_id from {min_usage_id} to {max_usage_id} to the server")
-    # 4. Read the log and decide whether to resend or not
-    
+    if min_usage_id is not None:
+        logging.info(f"Sent rows with usage_id from {min_usage_id} to {max_usage_id} to the server")
+    # 4. Read the log and decide whether to resend or not (or Try 5 mins later)
+       
 
 
 
