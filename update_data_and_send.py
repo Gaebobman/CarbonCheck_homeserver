@@ -4,8 +4,9 @@ import json
 import pymysql
 import logging
 import re
+import requests
 from config.database_config import * 
-from websocket import create_connection
+
 
 
 logging.basicConfig(filename="log/communication_log.txt", level=logging.INFO) # Set log file
@@ -47,10 +48,10 @@ GROUP BY USAGE_ID, USER_ID
 def get_tuples():
     sent_range = find_sent_range()
     start, end = None, None
-    query = "SELECT usage_id, user_id, start_time, end_time, place, amount FROM water_usage"
+    query = "SELECT user_id, start_time, end_time, place, amount FROM water_usage"
     if sent_range:
         start, end = sent_range
-        query = "SELECT usage_id, user_id, start_time, end_time, place, amount from water_usage WHERE usage_id NOT BETWEEN %s AND %s"
+        query = "SELECT user_id, start_time, end_time, place, amount from water_usage WHERE usage_id NOT BETWEEN %s AND %s"
     
     conn = pymysql.connect(host=MYSQL_HOST, user=MYSQL_USER, password=MYSQL_PASSWORD, db=MYSQL_DB, charset='utf8')
     data = None
@@ -74,11 +75,17 @@ def json_datetime_default(value):
 
 
 # 2. Send data to server / # Retrieve data from local database
-def send_data_to_server(rows, ws):
+def send_data_to_server(rows):
         # message = str(rows)
-        message = json.dumps(rows, default=json_datetime_default)
+        row_headers = ['user_id', 'start_time', 'end_time', 'place', 'amount']
+        json_data = []
+        for row in rows:
+            json_data.append(dict(zip(row_headers, row))) # Zip the column and tuple elements and make a dictionary
+        message = json.dumps(json_data, default=json_datetime_default)
+        print(message)
         try:
-            ws.send(message)
+            response = request.post(f"http://{CARBONCHECK_SERVER_URL}/{WATER_USAGE_CLIENT}", json=message)
+            result = response.json().get("success", False)
             for row in rows:
                 usage_id = row[0]
                 # update min, max _usage_id
@@ -86,7 +93,7 @@ def send_data_to_server(rows, ws):
                     min_usage_id = usage_id
                 if max_usage_id is None or usage_id > max_usage_id:
                     max_usage_id = usage_id
-            return True
+            return result
         except Exception as e:
             return False
         
@@ -123,13 +130,13 @@ def main():
 
     # 2. Send it to server 
     
-    ws = create_connection(f"ws://{CARBONCHECK_SERVER_URL}/{WATER_USAGE_CLIENT}")
+    
     data = get_tuples()
     for i in range(0, len(data), BATCH_SIZE):
         rows = data[i:i+BATCH_SIZE]    # Slice the data by batch size
-        result = send_data_to_server(rows, ws) 
+        result = send_data_to_server(rows) 
         save_log(rows,result)
-    ws.close()
+
     
     # 3. Log the range of the column you sent and the response you received from the server
     logging.info(f"Sent rows with usage_id from {min_usage_id} to {max_usage_id} to the server")
