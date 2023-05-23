@@ -4,6 +4,7 @@
 config/
 log/
 data/
+scripts/
 ### Linux ###
 *~
 
