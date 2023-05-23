@@ -5,6 +5,7 @@ config/
 log/
 data/
 scripts/
+smart_socket/tuya_config.py
 ### Linux ###
 *~
 
