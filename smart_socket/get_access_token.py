@@ -78,6 +78,10 @@ class TuyaTokenInfo:
         self.platform_url = result.get("platform_url", "")
 
 
+    def _print_informations(self):
+        print(f"EXPIRE_TIME: {self.expire_time}\nACCESS_TOKEN: {self.access_token}\nREFRESH_TOKEN: {self.refresh_token}\nUID: {self.uid}\nPLATFORM_URL:{self.platform_url}")
+
+
 class TuyaOpenAPI:
     """Open Api.
 
@@ -123,12 +127,12 @@ class TuyaOpenAPI:
             str_to_sign = method
             str_to_sign += "\n"
 
-            # Content-SHA256
+            # Content-SHA256 / sha256 of pre-request Script
             content_to_sha256 = (
                 "" if body is None or len(body.keys()) == 0 else json.dumps(body)
             )
-
             str_to_sign += (
+            # Corresponds to CryptoJS.SHA256(str)
             hashlib.sha256(content_to_sha256.encode("utf8")).hexdigest().lower()
             )
             str_to_sign += "\n"
@@ -139,6 +143,7 @@ class TuyaOpenAPI:
             # URL
             str_to_sign += path
 
+            # toJsonObj of pre-request Script
             if params is not None and len(params.keys()) > 0:
                 str_to_sign += "?"
 
@@ -163,6 +168,36 @@ class TuyaOpenAPI:
                 .upper()
             )
             return sign, t
+    
+    # Business verification calculation
+    # easy_access_token,"GET","/v1.0/devices?", device_id,"&page_no=1&page_size=20")
+    def _calculate_sign_business(self, easy_access_token, method, path, device_id, param_str):
+        # Goal: Generate GET\n{CryptoJS.SHA256("")}\n\n/v1.0/devices?device_ids=DEVICE_ID&page_no=1&page_size=20
+        str_to_sign = method
+        str_to_sign += "\n" # " "GET\n
+        # 1. Generate {CryptoJS.SHA256("")}
+        content_to_sha256 = ""
+        str_to_sign += (
+        # Corresponds to CryptoJS.SHA256(str) / This value is always same
+        hashlib.sha256(content_to_sha256.encode("utf8")).hexdigest().lower()
+        )
+        str_to_sign += "\n\n" # " "GET\n{CryptoJS.SHA256("")}\n\n
+        str_to_sign += path
+        str_to_sign +="device_ids="+ device_id + param_str
+        t = int(time.time() * 1000)
+        str_hash = CLIENT_ID + easy_access_token + str(t) +str_to_sign
+
+        sign = (
+            hmac.new(
+                self.access_secret.encode("utf8"), 
+                msg=str_hash.encode("utf8"), 
+                digestmod=hashlib.sha256,
+            )
+            .hexdigest()
+            .upper()
+        )
+
+        return sign, t
 
 
 def get_token(sign, t):
@@ -178,28 +213,18 @@ def get_token(sign, t):
     }
     
     response = requests.request("GET", url, headers=headers, data=payload)
-    """
-    {"result":
-        {"access_token":"~~~","expire_time":~~~,"refresh_token":"~~~","uid":"~~~"},
-        "success":true,
-        "t":"~~~",
-        "tid":""
-    }
-    """
     return response.json()
 
 
-def get_devices_information(easy_access_token, sign, t, device_list):
-    url = BASE_URL + f"/devices?device_ids={device_list}&page_no=1&page_size=20"
+def get_devices_information(easy_access_token, sign, t, device_id):
+    url = BASE_URL + f"/devices?device_ids={device_id}&page_no=1&page_size=20"
     payload = {}
     headers = {
         'client_id': CLIENT_ID,
-        'access_tokken': easy_access_token,
+        'access_token': easy_access_token,
         'sign': sign,
         't': str(t),
-        'sign_method': 'HMAC-SHA256',
-        'nonce': '',
-        'stringToSign': ''
+        'sign_method': 'HMAC-SHA256'
     }
     
     response = requests.request("GET", url, headers=headers, data=payload)
@@ -210,16 +235,28 @@ def get_devices_information(easy_access_token, sign, t, device_list):
 def main():
     openapi = TuyaOpenAPI("https://openapi.tuyaus.com", CLIENT_ID, SECRET)
     sign, t = openapi._calculate_sign("GET","/v1.0/token?grant_type=1")
-    token = get_token(sign, t)
-    print(token)
-    easy_access_token = token['result']['access_token']
+    openapi.token_info = TuyaTokenInfo(get_token(sign, t))
+    easy_access_token = openapi.token_info.access_token
+    openapi.token_info._print_informations()
+
+    """
+    var sign = calcSign(clientId, accessToken, timestamp, nonce, signStr, secret);
+    original javascript code parameters: 
+    (clientId: CLIENT_ID,
+     accessToken: easy_access_token, 
+     timestamp: We will calculate it inside function, 
+     nonce: None, 
+     signStr: " "GET\n{CryptoJS.SHA256("")\n/v1.0/devices?device_ids={DEVICE_ID}&page_no=1&page_size=20" ", 
+     secret: SECRET)
+    """
     device_list = [SOCKET_0_ID, SOCKET_1_ID, SOCKET_2_ID, SOCKET_3_ID]
-    device_list = ','.join(device_list)
-    params = {"device_ids": device_list, "page_no": 1, "page_size": 20}
-    sign, t = openapi._calculate_sign("GET","/v1.0/devices?", params)
-    print(sign)
+    # device_list = ','.join(device_list)
     # print(get_devices_information(easy_access_token, sign,t, device_list))
-    print(get_devices_information(easy_access_token, sign,t, device_list))
+    for device_id in device_list:
+        sign, t = openapi._calculate_sign_business(easy_access_token,"GET","/v1.0/devices?", device_id,"&page_no=1&page_size=20")
+        res = get_devices_information(easy_access_token, sign, t, device_id)
+        print(res)
+
 
 if __name__=="__main__":
     main()
