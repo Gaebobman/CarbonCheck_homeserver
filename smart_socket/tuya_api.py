@@ -65,7 +65,7 @@ class TuyaTokenInfo:
         platform_url: user region platform url
     """
 
-    def __init__(self, token_response: dict[str, Any] = None):
+    def __init__(self, token_response = None):
         """Init TuyaTokenInfo."""
         result = token_response.get("result", {})
 
@@ -122,8 +122,8 @@ class TuyaOpenAPI:
         self.__country_code = ""
         self.__schema = ""
     #https://developer.tuya.com/en/docs/iot/singnature?id=Ka43a5mtx1gsc
-    def _calculate_sign(self, method:str, path:str, params: dict[str, Any] | None = None, body: dict[str, Any] | None = None,
-        ) -> tuple[str, int]:
+    def _calculate_sign(self, method:str, path:str, params= None, body=None,
+        ):
         # HTTPMethod
             str_to_sign = method
             str_to_sign += "\n"
@@ -201,7 +201,7 @@ class TuyaOpenAPI:
         return sign, t
 
 
-def get_token(sign, t, http):
+def get_token(sign, t):
     url = BASE_URL + "/token?grant_type=1"
     payload = {}
     headers = {
@@ -215,7 +215,6 @@ def get_token(sign, t, http):
     
     response =requests.request("GET", url, headers=headers, data=payload)
     return response.json()
-
 
 
 def get_devices_information(easy_access_token, sign, t, device_id, http):
@@ -232,29 +231,45 @@ def get_devices_information(easy_access_token, sign, t, device_id, http):
     return json.loads(response.data)
 
 
-def parse_information(response):
+def parse_information(device_id, response):
     device_info = response.get("result", {}).get("devices", [])
     if not device_info:
         return None
     item = device_info[0]
-    name = item.get("name")
+    # name = item.get("name")
+    name = device_id
     status = item.get("status")
-    codes = {"switch_1","cur_current", "cur_power", "cur_voltage", "add_ele"}
+    # codes = {"switch_1","cur_current", "cur_power", "cur_voltage", "add_ele"}
+    codes = {"add_ele"}
+
     values = {item.get("code"): item.get("value") for item in status if item.get("code") in codes}
     return {"name": name, **values}
+
+
+def send_information_to_server(device_information):
+    headers = {"Content-Type": "application/json"}
+    message = json.dumps(device_information)
+    print(f'{headers}\n{message}')
+    try:
+        response = requests.post(f"https://{ELECTRICITY_USAGE_CLIENT}", headers=headers, data=message)
+        result = response.json()
+        result = result['success']
+        return result
+    except Exception as e:
+        return False
 
 
 def main():
     http = urllib3.PoolManager()
     openapi = TuyaOpenAPI("https://openapi.tuyaus.com", CLIENT_ID, SECRET)
     sign, t = openapi._calculate_sign("GET","/v1.0/token?grant_type=1")
-    openapi.token_info = TuyaTokenInfo(get_token(sign, t, http))
+    openapi.token_info = TuyaTokenInfo(get_token(sign, t))
     easy_access_token = openapi.token_info.access_token
     device_list = [SOCKET_0_ID, SOCKET_1_ID, SOCKET_2_ID, SOCKET_3_ID]
     for device_id in device_list:
         sign, t = openapi._calculate_sign_business(easy_access_token,"GET","/v1.0/devices?", device_id,"&page_no=1&page_size=20")
         res = get_devices_information(easy_access_token, sign, t, device_id, http)
-        print(parse_information(res))
+        print(send_information_to_server(parse_information(device_id,res)))
 
 
 if __name__=="__main__":
