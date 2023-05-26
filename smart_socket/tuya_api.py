@@ -232,7 +232,7 @@ def get_devices_information(easy_access_token, sign, t, device_id, http):
     return json.loads(response.data)
 
 
-def parse_information_improved(response):
+def parse_information(response):
     device_info = response.get("result", {}).get("devices", [])
     if not device_info:
         return None
@@ -254,7 +254,7 @@ def main():
     for device_id in device_list:
         sign, t = openapi._calculate_sign_business(easy_access_token,"GET","/v1.0/devices?", device_id,"&page_no=1&page_size=20")
         res = get_devices_information(easy_access_token, sign, t, device_id, http)
-        print(parse_information_improved(res))
+        print(parse_information(res))
 
 
 if __name__=="__main__":
