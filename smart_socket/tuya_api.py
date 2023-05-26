@@ -65,7 +65,7 @@ class TuyaTokenInfo:
         platform_url: user region platform url
     """
 
-    def __init__(self, token_response: dict[str, Any] = None):
+    def __init__(self, token_response = None):
         """Init TuyaTokenInfo."""
         result = token_response.get("result", {})
 
@@ -122,8 +122,8 @@ class TuyaOpenAPI:
         self.__country_code = ""
         self.__schema = ""
     #https://developer.tuya.com/en/docs/iot/singnature?id=Ka43a5mtx1gsc
-    def _calculate_sign(self, method:str, path:str, params: dict[str, Any] | None = None, body: dict[str, Any] | None = None,
-        ) -> tuple[str, int]:
+    def _calculate_sign(self, method:str, path:str, params= None, body=None,
+        ):
         # HTTPMethod
             str_to_sign = method
             str_to_sign += "\n"
