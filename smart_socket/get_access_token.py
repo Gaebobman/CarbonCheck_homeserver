@@ -229,33 +229,42 @@ def get_devices_information(easy_access_token, sign, t, device_id):
     
     response = requests.request("GET", url, headers=headers, data=payload)
 
-    return response.text
+    return response.json()
 
+
+def parse_information(response):
+    result = response.get("result", {})
+    device_info = result.get("devices")
+    name =  status = None
+    # Current, Power, Voltage, Consumption(Realtime)
+    cur_current = cur_power = cur_voltage = add_ele = 0
+    for item in device_info:
+        name = item.get("name")
+        status = item.get("status")
+    for item in status:
+        if item.get("code") == "cur_current":
+            cur_current = item.get("value")
+        if item.get("code") == "cur_power":
+            cur_power = item.get("value")
+        if item.get("code") == "cur_voltage":
+            cur_voltage = item.get("value")
+        if item.get("code") == "add_ele":
+            add_ele = item.get("value")
+
+    return {"name": name, "cur_current": cur_current, "cur_power":cur_power, "cur_voltage": cur_voltage, "add_ele": add_ele}
+    # print(device_info)
+    # return device_name
 
 def main():
     openapi = TuyaOpenAPI("https://openapi.tuyaus.com", CLIENT_ID, SECRET)
     sign, t = openapi._calculate_sign("GET","/v1.0/token?grant_type=1")
     openapi.token_info = TuyaTokenInfo(get_token(sign, t))
     easy_access_token = openapi.token_info.access_token
-    openapi.token_info._print_informations()
-
-    """
-    var sign = calcSign(clientId, accessToken, timestamp, nonce, signStr, secret);
-    original javascript code parameters: 
-    (clientId: CLIENT_ID,
-     accessToken: easy_access_token, 
-     timestamp: We will calculate it inside function, 
-     nonce: None, 
-     signStr: " "GET\n{CryptoJS.SHA256("")\n/v1.0/devices?device_ids={DEVICE_ID}&page_no=1&page_size=20" ", 
-     secret: SECRET)
-    """
     device_list = [SOCKET_0_ID, SOCKET_1_ID, SOCKET_2_ID, SOCKET_3_ID]
-    # device_list = ','.join(device_list)
-    # print(get_devices_information(easy_access_token, sign,t, device_list))
     for device_id in device_list:
         sign, t = openapi._calculate_sign_business(easy_access_token,"GET","/v1.0/devices?", device_id,"&page_no=1&page_size=20")
         res = get_devices_information(easy_access_token, sign, t, device_id)
-        print(res)
+        print(parse_information(res))
 
 
 if __name__=="__main__":
