@@ -6,6 +6,8 @@ import os
 import pickle
 import sys
 import time
+import requests
+from config.database_config import CARBONCHECK_SERVER_URL
 from os import makedirs, listdir
 from os.path import isdir, isfile, join
 from sklearn import neighbors
@@ -147,9 +149,18 @@ def main():
     classifier = train("data/sub_data", model_save_path="data/trained_knn_model.clf", n_neighbors=2)
     print("Training complete!")
     # Print User List
-    user_list_path = 'data/sub_data'
-    user_list = [item for item in os.listdir (user_list_path) if os.path.isdir (os.path.join (user_list_path, item))]
-    print(user_list)
+    # user_list_path = 'data/sub_data'
+    # user_list = [item for item in os.listdir (user_list_path) if os.path.isdir (os.path.join (user_list_path, item))]
+    
+    # Training done, Notify server
+    url = f"https://{CARBONCHECK_SERVER_URL}/training_done"
+    data = {'result': True}
+    response = requests.post(url, data=data)
+    # Check the response status code
+    if response.status_code == 200:
+        return 0
+    else:
+        return 1
 
 
 if __name__ == "__main__":
