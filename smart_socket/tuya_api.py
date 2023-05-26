@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import json
 import requests
+import urllib3
 import time
 from tuya_config import *
 from typing import Any
@@ -200,7 +201,7 @@ class TuyaOpenAPI:
         return sign, t
 
 
-def get_token(sign, t):
+def get_token(sign, t, http):
     url = BASE_URL + "/token?grant_type=1"
     payload = {}
     headers = {
@@ -212,13 +213,13 @@ def get_token(sign, t):
       'stringToSign': ''
     }
     
-    response = requests.request("GET", url, headers=headers, data=payload)
+    response =requests.request("GET", url, headers=headers, data=payload)
     return response.json()
 
 
-def get_devices_information(easy_access_token, sign, t, device_id):
+
+def get_devices_information(easy_access_token, sign, t, device_id, http):
     url = BASE_URL + f"/devices?device_ids={device_id}&page_no=1&page_size=20"
-    payload = {}
     headers = {
         'client_id': CLIENT_ID,
         'access_token': easy_access_token,
@@ -227,44 +228,33 @@ def get_devices_information(easy_access_token, sign, t, device_id):
         'sign_method': 'HMAC-SHA256'
     }
     
-    response = requests.request("GET", url, headers=headers, data=payload)
+    response = http.request("GET", url, headers=headers)
+    return json.loads(response.data)
 
-    return response.json()
 
+def parse_information_improved(response):
+    device_info = response.get("result", {}).get("devices", [])
+    if not device_info:
+        return None
+    item = device_info[0]
+    name = item.get("name")
+    status = item.get("status")
+    codes = {"switch_1","cur_current", "cur_power", "cur_voltage", "add_ele"}
+    values = {item.get("code"): item.get("value") for item in status if item.get("code") in codes}
+    return {"name": name, **values}
 
-def parse_information(response):
-    result = response.get("result", {})
-    device_info = result.get("devices")
-    name =  status = None
-    # Current, Power, Voltage, Consumption(Realtime)
-    cur_current = cur_power = cur_voltage = add_ele = 0
-    for item in device_info:
-        name = item.get("name")
-        status = item.get("status")
-    for item in status:
-        if item.get("code") == "cur_current":
-            cur_current = item.get("value")
-        if item.get("code") == "cur_power":
-            cur_power = item.get("value")
-        if item.get("code") == "cur_voltage":
-            cur_voltage = item.get("value")
-        if item.get("code") == "add_ele":
-            add_ele = item.get("value")
-
-    return {"name": name, "cur_current": cur_current, "cur_power":cur_power, "cur_voltage": cur_voltage, "add_ele": add_ele}
-    # print(device_info)
-    # return device_name
 
 def main():
+    http = urllib3.PoolManager()
     openapi = TuyaOpenAPI("https://openapi.tuyaus.com", CLIENT_ID, SECRET)
     sign, t = openapi._calculate_sign("GET","/v1.0/token?grant_type=1")
-    openapi.token_info = TuyaTokenInfo(get_token(sign, t))
+    openapi.token_info = TuyaTokenInfo(get_token(sign, t, http))
     easy_access_token = openapi.token_info.access_token
     device_list = [SOCKET_0_ID, SOCKET_1_ID, SOCKET_2_ID, SOCKET_3_ID]
     for device_id in device_list:
         sign, t = openapi._calculate_sign_business(easy_access_token,"GET","/v1.0/devices?", device_id,"&page_no=1&page_size=20")
-        res = get_devices_information(easy_access_token, sign, t, device_id)
-        print(parse_information(res))
+        res = get_devices_information(easy_access_token, sign, t, device_id, http)
+        print(parse_information_improved(res))
 
 
 if __name__=="__main__":
