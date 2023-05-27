@@ -5,8 +5,7 @@ from config.database_config import *
 
 
 def insert_data(usage_data):
-    conn = pymysql.connect(host=MYSQL_HOST, user=MYSQL_USER, 
-                           password=MYSQL_PASSWORD, db=MYSQL_DB, charset='utf8')
+    conn = pymysql.connect(host=MYSQL_HOST, user=MYSQL_USER,  password=MYSQL_PASSWORD, db=MYSQL_DB, charset='utf8')
 
     try:
         curs = conn.cursor()

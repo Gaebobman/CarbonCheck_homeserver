@@ -1,18 +1,19 @@
-import cv2
-import face_recognition
 import math
-import numpy as np
 import os
 import pickle
 import sys
 import time
-import requests
-from config.database_config import CARBONCHECK_SERVER_URL
-from os import makedirs, listdir
+from os import listdir, makedirs
 from os.path import isdir, isfile, join
-from sklearn import neighbors
+import cv2
+import face_recognition
+import numpy as np
+import requests
 from face_recognition import face_recognition_cli
 from face_recognition.face_recognition_cli import image_files_in_folder
+from sklearn import neighbors
+
+from config.database_config import CARBONCHECK_SERVER_URL
 
 
 # https://blog.naver.com/chandong83/221695462391

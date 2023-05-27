@@ -16,5 +16,7 @@ def main():
         count +=1
         print(f'Count: {count} {message}')
 
+    print("I'm dead, I'm alive but I'm dead")
+    
 if __name__=="__main__":
     main()
