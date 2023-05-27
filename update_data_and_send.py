@@ -1,13 +1,11 @@
-from datetime import datetime
-import time
 import json
-import pymysql
 import logging
 import re
+import time
+from datetime import datetime
+import pymysql
 import requests
-from config.database_config import * 
-
-
+from config.database_config import *
 
 logging.basicConfig(filename="log/communication_log.txt", level=logging.INFO) # Set log file
 BATCH_SIZE = 10    # Batch size of tuples

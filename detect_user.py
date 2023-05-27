@@ -1,12 +1,13 @@
+import os
+import pickle
+import time
+from os.path import isdir, isfile, join
 import cv2
 import face_recognition
-import pickle
-import pymysql
-import os
-import time
 import PIL
+import pymysql
 from config.database_config import *
-from os.path import isdir, isfile, join
+
 
 def predict(X_img_path, knn_clf=None, model_path=None, distance_threshold=0.6):
     """
