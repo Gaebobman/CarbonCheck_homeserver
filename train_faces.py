@@ -77,9 +77,9 @@ def train(train_dir, model_save_path=None, n_neighbors=None, knn_algo='ball_tree
 
     :param train_dir: directory that contains a sub-directory for each known person, with its name.
 
-     (View in source code to see train_dir example tree structure)
+    (View in source code to see train_dir example tree structure)
 
-     Structure:
+    Structure:
         <train_dir>/
         ├── <person1>/
         │   ├── <somename1>.jpeg
@@ -137,7 +137,7 @@ def train(train_dir, model_save_path=None, n_neighbors=None, knn_algo='ball_tree
 
 
 def main():
-   
+    
     if len(sys.argv) != 2:
         print(f"Insufficient arguments\n\n Usage: python3 {sys.argv[1]} \"user_name\"")
         sys.exit()
@@ -166,5 +166,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-   
