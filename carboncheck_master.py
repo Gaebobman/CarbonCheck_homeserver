@@ -39,6 +39,7 @@ def worker(filename, arg: Optional[str] = None):
 # Define a function to run as a SSE client
 def sse_client(url: str, headers: dict):
     # Create a SSE client object
+    print(f"url: {url}, headers: {headers}")
     response = requests.get(url, stream=True, headers=headers)
     client = sseclient.SSEClient(response)
     # Receive events from the server
@@ -84,7 +85,7 @@ def main():
     last_update_time = time.time()
 
     # Create and start a thread to run as a SSE client
-    url = f'https://{CARBONCHECK_SERVER_URL}/{SSE_CLIENT_URL}'
+    url = f'https://{CARBONCHECK_SERVER_URL}/{SSE_CLIENT_URL}/{HOME_SERVER_ID}/{HOME_SERVER_ID}'
     headers = {'Accept': 'text/event-stream'}
     sse_thread = threading.Thread(target=sse_client, args=(url, headers))
     sse_thread.start()

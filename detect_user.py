@@ -87,8 +87,8 @@ def capture_visitor_face():
         if cropped_visitor_face is not None:
             cv2.imwrite(f'./data/test_data/visitor.png', cropped_visitor_face)
             break
-        else:
-            print("Visitor Face not found ")
+        #else:
+            # print("Visitor Face not found ")
         if cv2.waitKey(1)==13:
             break
 
