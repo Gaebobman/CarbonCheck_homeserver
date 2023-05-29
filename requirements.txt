@@ -2,7 +2,7 @@ requests
 urllib3
 multiprocessing
 subprocess
-sseclient
+sseclient-py
 pymysql
 cv2
 PIL
