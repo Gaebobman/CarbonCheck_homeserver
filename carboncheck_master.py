@@ -44,32 +44,32 @@ def with_urllib3(url, headers):
 
 # Define a function to run as a SSE client
 def sse_client(url: str, headers: dict):
-    print('HI')
     # Create a SSE client object
     response = with_urllib3(url, headers)
     # response = requests.get(url, headers=headers, stream=True)
     client = sseclient.SSEClient(response)
-    print(response)
     # Receive events from the server
     for event in client.events():
         # Check the event data
         data = json.loads(event.data)
-        pprint.pprint(data)
-        """
-        if data.startswith("ADD USER"):
+        msg_ = data.get("msg")
+        id_ = data.get("id")
+        success_ = data.get("success")
+        print(f"msg: {msg_}, id: {id_}, success: {success_}")
+        
+        if msg_ == "add":
             # Extract the user_id from the data
-            user_id = data.split()[2]
             terminate_process(DETECT_PY)
             # Create and start the train_faces.py process with user_id as argument
-            processes[TRAIN_PY] = mp.Process(target=worker, args=(TRAIN_PY, user_id))
+            processes[TRAIN_PY] = mp.Process(target=worker, args=(TRAIN_PY, id_))
             processes[TRAIN_PY].start()
-        elif data == "TRAINING DONE":
+        elif msg_ == "done":
             # TRAIN_PY 종료
             terminate_process(TRAIN_PY)
             # Create and start the DETECT_PY process
             processes[DETECT_PY] = mp.Process(target=worker, args=(DETECT_PY,))
             processes[DETECT_PY].start()
-        """
+        
 # Define a main function to run the main features
 def main():
     # Change SQL_mode of mysql
