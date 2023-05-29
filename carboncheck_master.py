@@ -4,13 +4,12 @@ import sys
 import threading
 import time
 from typing import Optional
-import requests
+import pprint
 import urllib3
 import sseclient
 import pymysql
-
 from config.database_config import *
-
+import json
 # Define python file names
 DETECT_PY = './detect_user.py'
 UDP_PY = './server_udp.py'
@@ -45,15 +44,18 @@ def with_urllib3(url, headers):
 
 # Define a function to run as a SSE client
 def sse_client(url: str, headers: dict):
+    print('HI')
     # Create a SSE client object
-    response = requests.get(url, stream=True, headers=headers)
-    # response = with_urllib3(url, headers)
+    response = with_urllib3(url, headers)
+    # response = requests.get(url, headers=headers, stream=True)
     client = sseclient.SSEClient(response)
+    print(response)
     # Receive events from the server
     for event in client.events():
         # Check the event data
-        data = event.data
-        pprint.pprint(json.loads(data))
+        data = json.loads(event.data)
+        pprint.pprint(data)
+        """
         if data.startswith("ADD USER"):
             # Extract the user_id from the data
             user_id = data.split()[2]
@@ -67,7 +69,7 @@ def sse_client(url: str, headers: dict):
             # Create and start the DETECT_PY process
             processes[DETECT_PY] = mp.Process(target=worker, args=(DETECT_PY,))
             processes[DETECT_PY].start()
-
+        """
 # Define a main function to run the main features
 def main():
     # Change SQL_mode of mysql
