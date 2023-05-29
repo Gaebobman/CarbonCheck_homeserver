@@ -5,6 +5,7 @@ import threading
 import time
 from typing import Optional
 import requests
+import urllib3
 import sseclient
 import pymysql
 
@@ -36,15 +37,23 @@ def worker(filename, arg: Optional[str] = None):
         subprocess.run([sys.executable, filename])
 
 
+def with_urllib3(url, headers):
+    """Get a streaming response for the given event feed using urllib3."""
+    http = urllib3.PoolManager()
+    return http.request('GET', url, preload_content=False, headers=headers)
+
+
 # Define a function to run as a SSE client
 def sse_client(url: str, headers: dict):
     # Create a SSE client object
     response = requests.get(url, stream=True, headers=headers)
+    # response = with_urllib3(url, headers)
     client = sseclient.SSEClient(response)
     # Receive events from the server
     for event in client.events():
         # Check the event data
         data = event.data
+        pprint.pprint(json.loads(data))
         if data.startswith("ADD USER"):
             # Extract the user_id from the data
             user_id = data.split()[2]
@@ -84,7 +93,7 @@ def main():
     last_update_time = time.time()
 
     # Create and start a thread to run as a SSE client
-    url = f'https://{CARBONCHECK_SERVER_URL}/{SSE_CLIENT_URL}'
+    url = 'http://'+ SSE_SERVER_URL + '/' + HOME_SERVER_ID + '/' + HOME_SERVER_ID
     headers = {'Accept': 'text/event-stream'}
     sse_thread = threading.Thread(target=sse_client, args=(url, headers))
     sse_thread.start()
