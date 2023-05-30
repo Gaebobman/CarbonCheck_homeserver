@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import json
 import requests
+import sys
 import urllib3
 import time
 from tuya_config import *
@@ -185,9 +186,39 @@ class TuyaOpenAPI:
         str_to_sign += "\n\n" # " "GET\n{CryptoJS.SHA256("")}\n\n
         str_to_sign += path
         str_to_sign +="device_ids="+ device_id + param_str
+        print(str_to_sign)
         t = int(time.time() * 1000)
         str_hash = CLIENT_ID + easy_access_token + str(t) +str_to_sign
+        print(str_hash)
+        sign = (
+            hmac.new(
+                self.access_secret.encode("utf8"), 
+                msg=str_hash.encode("utf8"), 
+                digestmod=hashlib.sha256,
+            )
+            .hexdigest()
+            .upper()
+        )
 
+        return sign, t
+
+    def _calculate_sign_business2(self, easy_access_token, method, path, device_id, param_str):
+        # Goal: Generate POST\n{CryptoJS.SHA256("")}\n\n/v1.0/devices/DEVICE_ID/commands
+        str_to_sign = method
+        str_to_sign += "\n" # " "POST\n
+        # 1. Generate {CryptoJS.SHA256("")}
+        content_to_sha256 = ""
+        str_to_sign += (
+        # Corresponds to CryptoJS.SHA256(str) / This value is always same
+        hashlib.sha256(content_to_sha256.encode("utf8")).hexdigest().lower()
+        )
+        str_to_sign += "\n\n" # " "POST\n{CryptoJS.SHA256("")}\n\n
+        str_to_sign += path
+        str_to_sign += device_id + param_str # ~~DEVICE_ID/commands
+        print(str_to_sign)
+        t = int(time.time() * 1000)
+        str_hash = CLIENT_ID + easy_access_token + str(t) +str_to_sign
+        print(str_hash)
         sign = (
             hmac.new(
                 self.access_secret.encode("utf8"), 
@@ -250,7 +281,7 @@ def send_information_to_server(device_information):
     device_information["amount"] = device_information["add_ele"]
     del device_information["add_ele"]
     message = json.dumps(device_information)
-    # print(f'{headers}\n{message}')
+    print(f'{headers}\n{message}')
     try:
         response = requests.post(f"https://{ELECTRICITY_USAGE_CLIENT}", headers=headers, data=message)
         result = response.json()
@@ -260,17 +291,50 @@ def send_information_to_server(device_information):
         return False
 
 
+def control_device(easy_access_token, sign, t, device_id, action):
+    url = BASE_URL + f"/devices/device_id={device_id}/commands"
+    headers = {
+        'client_id': CLIENT_ID,
+        'access_token': easy_access_token,
+        'sign': sign,
+        't': str(t),
+        'sign_method': 'HMAC-SHA256',
+        'Content-Type': 'application/json'
+    }
+    body={
+        'commands':[
+            {
+                'code': 'switch_1',
+                'value': action
+            }
+        ]
+    }
+    response = requests.post(url, headers=headers, data=body)
+    result = response.json()
+    print(result)
+    result = result['success']
+    print(result)
+    
+
 def main():
     http = urllib3.PoolManager()
     openapi = TuyaOpenAPI("https://openapi.tuyaus.com", CLIENT_ID, SECRET)
     sign, t = openapi._calculate_sign("GET","/v1.0/token?grant_type=1")
     openapi.token_info = TuyaTokenInfo(get_token(sign, t))
     easy_access_token = openapi.token_info.access_token
-    device_list = [SOCKET_0_ID, SOCKET_1_ID, SOCKET_2_ID, SOCKET_3_ID]
-    for device_id in device_list:
-        sign, t = openapi._calculate_sign_business(easy_access_token,"GET","/v1.0/devices?", device_id,"&page_no=1&page_size=20")
-        res = get_devices_information(easy_access_token, sign, t, device_id, http)
-        print(send_information_to_server(parse_information(device_id,res)))
+
+    if len(sys.argv) == 1: 
+        # Send data mode
+        device_list = [SOCKET_0_ID, SOCKET_1_ID, SOCKET_2_ID, SOCKET_3_ID]
+        for device_id in device_list:
+            sign, t = openapi._calculate_sign_business(easy_access_token,"GET","/v1.0/devices?", device_id,"&page_no=1&page_size=20")
+            res = get_devices_information(easy_access_token, sign, t, device_id, http)
+            print(send_information_to_server(parse_information(device_id,res)))
+    else:
+        # Command mode (tuya_api.py {device_id} {bool})
+        sign, t = openapi._calculate_sign_business2(easy_access_token,"POST","/v1.0/devices/", sys.argv[1],"/commands")
+        action = sys.argv[2].lower() == 'true'
+        control_device(easy_access_token, sign, t, sys.argv[1], action)
 
 
 if __name__=="__main__":
