@@ -78,10 +78,9 @@ def capture_visitor_face():
     # capture= cv2.VideoCapture('nvarguscamerasrc ! video/x-raw(memory:NVMM), width=640, height=480, format=(string)NV12, framerate=(fraction)20/1 ! nvvidconv ! video/x-raw, format=(string)BGRx ! videoconvert ! video/x-raw, format=(string)BGR ! appsink' , cv2.CAP_GSTREAMER)
     # Capture for webcam
     capture = cv2.VideoCapture("/dev/video0", cv2.CAP_V4L2)
-    capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-    capture.set(cv2.CAP_PROP_FPS, 15)
-    count = 0
+    # capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    # capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    # capture.set(cv2.CAP_PROP_FPS, 15)
     
     while True:
         result, frame = capture.read()

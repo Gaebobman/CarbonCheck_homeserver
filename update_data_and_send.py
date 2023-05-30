@@ -80,7 +80,8 @@ def send_data_to_server(rows):
         row_headers = ['user_id', 'start_time', 'end_time', 'place', 'amount']
         json_data = []
         for row in rows:
-            json_data.append(dict(zip(row_headers, row[1:]))) # Zip the column and tuple elements and make a dictionary
+            if row[1] is not None:
+                json_data.append(dict(zip(row_headers, row[1:]))) # Zip the column and tuple elements and make a dictionary
         message = json.dumps(json_data, default=json_datetime_default) 
         try:
             response = requests.post(f"https://{CARBONCHECK_SERVER_URL}/{WATER_USAGE_CLIENT}", headers=headers, data=message)

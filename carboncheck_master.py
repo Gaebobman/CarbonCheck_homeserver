@@ -46,7 +46,6 @@ def with_urllib3(url, headers):
 def sse_client(url: str, headers: dict):
     # Create a SSE client object
     response = with_urllib3(url, headers)
-    # response = requests.get(url, headers=headers, stream=True)
     client = sseclient.SSEClient(response)
     # Receive events from the server
     for event in client.events():
@@ -103,10 +102,12 @@ def main():
     # Repeat the following steps indefinitely
     while True:
         # 5분마다 업데이트 되어야 하므로 5분이 되었는지 확인한다.
-        if time.time() - last_update_time > 300:
+        if time.time() - last_update_time > 60:
             # Create and start the update_data_and_send.py process
             processes[SEND_WATER_PY] = mp.Process(target=worker, args=(SEND_WATER_PY,))
             processes[SEND_WATER_PY].start()
+            processes[SEND_ELECTRICITY_PY] = mp.Process(target=worker, args=(SEND_ELECTRICITY_PY,))
+            processes[SEND_ELECTRICITY_PY].start()
             # Record the current time as the last update time
             last_update_time = time.time()
 
