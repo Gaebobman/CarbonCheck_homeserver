@@ -9,11 +9,12 @@ import cv2
 import face_recognition
 import numpy as np
 import requests
+import json
 from face_recognition import face_recognition_cli
 from face_recognition.face_recognition_cli import image_files_in_folder
 from sklearn import neighbors
 
-from config.database_config import CARBONCHECK_SERVER_URL
+from config.database_config import CARBONCHECK_SERVER_URL, HOME_SERVER_ID
 
 
 # https://blog.naver.com/chandong83/221695462391
@@ -146,10 +147,10 @@ def main():
     else:
         user_name = sys.argv[1]
     print(f'Please stay still in front of the camera : {user_name}')
-    capture_face(user_name)
+    # capture_face(user_name)
     print("Captured 100 iamges, Now Train KNN classifier... ")
     # TODO: Use Only 80% of image for train, and user 20% for measure accuracy
-    classifier = train("data/sub_data", model_save_path="data/trained_knn_model.clf", n_neighbors=2)
+    # classifier = train("data/sub_data", model_save_path="data/trained_knn_model.clf", n_neighbors=2)
     print("Training complete!")
     # Print User List
     # user_list_path = 'data/sub_data'
@@ -157,12 +158,15 @@ def main():
     
     # Training done, Notify server
     url = f"https://{CARBONCHECK_SERVER_URL}/training_done"
-    data = {'result': True}
-    response = requests.post(url, data=data)
+    headers = {"Content-Type": "application/json"}
+    data = {'user_id': str(sys.argv[1]),'home_server_id': HOME_SERVER_ID,'result': True}
+    response = requests.post(url, data=json.dumps(data),headers=headers)
     # Check the response status code
     if response.status_code == 200:
+        print("Sent training done!!!")
         return 0
     else:
+        print("Training done, But couldn't notify server...")
         return 1
 
 

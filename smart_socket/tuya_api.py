@@ -241,15 +241,16 @@ def parse_information(device_id, response):
     status = item.get("status")
     # codes = {"switch_1","cur_current", "cur_power", "cur_voltage", "add_ele"}
     codes = {"add_ele"}
-
     values = {item.get("code"): item.get("value") for item in status if item.get("code") in codes}
-    return {"name": name, **values}
+    return {"plug_id": name, **values}
 
 
 def send_information_to_server(device_information):
     headers = {"Content-Type": "application/json"}
+    device_information["amount"] = device_information["add_ele"]
+    del device_information["add_ele"]
     message = json.dumps(device_information)
-    print(f'{headers}\n{message}')
+    # print(f'{headers}\n{message}')
     try:
         response = requests.post(f"https://{ELECTRICITY_USAGE_CLIENT}", headers=headers, data=message)
         result = response.json()
